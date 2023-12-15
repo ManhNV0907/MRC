@@ -1,0 +1,6 @@
+/data
+**/.idea
+**/__pycache__
+**/.ipynb_checkpoints
+/log_dir
+config.py
