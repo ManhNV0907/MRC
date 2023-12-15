@@ -128,6 +128,8 @@ for EPOCH in range(NUM_EPOCHS):
         torch.cuda.empty_cache()
     PROGRESS_BAR.close()
     SCHEDULER.step()
+    train_metrics = metrics_computer.compute()
+    print(train_metrics["overall"])
 
     MODEL.eval()
     DEV_LOSSES: List[float] = []
@@ -145,8 +147,19 @@ for EPOCH in range(NUM_EPOCHS):
                 match_target=DATA_DICT["match_label"], token_type_ids=DATA_DICT["token_type_ids"]
             )
             DEV_LOSSES.append(LOSS.item())
+            metrics_computer.add_batch(
+                START_LOGIT.detach().cpu(), 
+                END_LOGIT.detach().cpu(), 
+                MATCH_LOGIT.detach().cpu(), 
+                DATA_DICT["start_label_mask"].detach().cpu(), 
+                DATA_DICT["end_label_mask"].detach().cpu(), 
+                DATA_DICT["match_label"].detach().cpu(), 
+                DATA_DICT["label"],
+            )
             del DATA_DICT, LOSS
             torch.cuda.empty_cache()
+        eval_metrics = metrics_computer.compute()
+        print(eval_metrics["overall"])
         PROGRESS_BAR.close()
     DEV_LOSS: float = sum(DEV_LOSSES) / len(DEV_LOSSES)
 
