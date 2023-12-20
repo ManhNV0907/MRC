@@ -156,6 +156,12 @@ def process_data(data: List[Dict], label_to_query: Dict[str, str]) -> List[Dict]
                 add_special_tokens=True, truncation=True, return_token_type_ids=True,
                 return_offsets_mapping=True
             ))
+            r = TOKENIZER(
+                text=query, text_pair=context, max_length=MAX_LENGTH,
+                add_special_tokens=True, truncation=True, return_token_type_ids=True,
+                return_offsets_mapping=True
+            ).word_ids()
+            # print(r)
             # print(tokenize_result)
 
             seq_len = len(tokenize_result["input_ids"])
@@ -176,15 +182,16 @@ def process_data(data: List[Dict], label_to_query: Dict[str, str]) -> List[Dict]
             end_label_mask = label_mask.copy()
             # print(label_mask)
             
-            # for token_idx in range(seq_len):
-            #     word_ids = tokenize_result["words"]
-            #     curr_word_id = word_ids[token_idx]
-            #     next_word_id = word_ids[token_idx + 1] if token_idx + 1 < seq_len else None
-            #     prev_word_id = word_ids[token_idx - 1] if token_idx - 1 >= 0 else None
-            #     if (prev_word_id is not None) and (curr_word_id == prev_word_id):
-            #         start_label_mask[token_idx] = 0
-            #     if (next_word_id is not None) and (curr_word_id == next_word_id):
-            #         end_label_mask[token_idx] = 0
+            for token_idx in range(seq_len):
+                # word_ids = tokenize_result["words"]
+                word_ids = r
+                curr_word_id = word_ids[token_idx]
+                next_word_id = word_ids[token_idx + 1] if token_idx + 1 < seq_len else None
+                prev_word_id = word_ids[token_idx - 1] if token_idx - 1 >= 0 else None
+                if (prev_word_id is not None) and (curr_word_id == prev_word_id):
+                    start_label_mask[token_idx] = 0
+                if (next_word_id is not None) and (curr_word_id == next_word_id):
+                    end_label_mask[token_idx] = 0
 
             tokenize_result["query"] = query
             tokenize_result["context"] = context
