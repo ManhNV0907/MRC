@@ -185,14 +185,14 @@ with torch.no_grad():
             input_ids=DATA_DICT["input_ids"], token_type_ids=DATA_DICT["token_type_ids"],
             attention_mask=DATA_DICT["attention_mask"]
         )
-    metrics_computer.add_batch(
-        START_LOGIT.detach().cpu(), 
-        END_LOGIT.detach().cpu(), 
-        MATCH_LOGIT.detach().cpu(), 
-        DATA_DICT["start_label_mask"].detach().cpu(), 
-        DATA_DICT["end_label_mask"].detach().cpu(), 
-        DATA_DICT["match_label"].detach().cpu(), 
-        DATA_DICT["label"],
+        metrics_computer.add_batch(
+            START_LOGIT.detach().cpu(), 
+            END_LOGIT.detach().cpu(), 
+            MATCH_LOGIT.detach().cpu(), 
+            DATA_DICT["start_label_mask"].detach().cpu(), 
+            DATA_DICT["end_label_mask"].detach().cpu(), 
+            DATA_DICT["match_label"].detach().cpu(), 
+            DATA_DICT["label"],
     )
     PROGRESS_BAR.close()
 
