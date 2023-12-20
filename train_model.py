@@ -38,6 +38,10 @@ DEV_DATA: List[Dict] = JSON_READER.read(file_name="data/clean_data/valid.json")
 DEV_DATASET = NERMRCDataset(data=DEV_DATA)
 DEV_DATALOADER = DataLoader(DEV_DATASET, batch_size=BATCH_SIZE, shuffle=False, collate_fn=collate_func)
 
+TEST_DATA: List[Dict] = JSON_READER.read(file_name="data/clean_data/test.json")
+TEST_DATASET = NERMRCDataset(data=TEST_DATA)
+TEST_DATALOADER = DataLoader(TEST_DATASET, batch_size=BATCH_SIZE, shuffle=False, collate_fn=collate_func)
+
 BERT_MODEL: BertModel = AutoModel.from_pretrained("bert-base-uncased", cache_dir=BERT_CASED_MODEL_DIR)
 MODEL = NERMRCModel(context_presenter=BERT_MODEL, hidden_dim=768)
 MODEL = MODEL.to(DEVICE)
@@ -128,6 +132,8 @@ for EPOCH in range(NUM_EPOCHS):
         torch.cuda.empty_cache()
     PROGRESS_BAR.close()
     SCHEDULER.step()
+    train_metrics = metrics_computer.compute()
+    print(train_metrics["overall"])
 
     MODEL.eval()
     DEV_LOSSES: List[float] = []
@@ -145,8 +151,19 @@ for EPOCH in range(NUM_EPOCHS):
                 match_target=DATA_DICT["match_label"], token_type_ids=DATA_DICT["token_type_ids"]
             )
             DEV_LOSSES.append(LOSS.item())
+            metrics_computer.add_batch(
+                START_LOGIT.detach().cpu(), 
+                END_LOGIT.detach().cpu(), 
+                MATCH_LOGIT.detach().cpu(), 
+                DATA_DICT["start_label_mask"].detach().cpu(), 
+                DATA_DICT["end_label_mask"].detach().cpu(), 
+                DATA_DICT["match_label"].detach().cpu(), 
+                DATA_DICT["label"],
+            )
             del DATA_DICT, LOSS
             torch.cuda.empty_cache()
+        eval_metrics = metrics_computer.compute()
+        print(eval_metrics["overall"])
         PROGRESS_BAR.close()
     DEV_LOSS: float = sum(DEV_LOSSES) / len(DEV_LOSSES)
 
@@ -157,3 +174,30 @@ for EPOCH in range(NUM_EPOCHS):
         print(f"LOSS IMPROVE FROM {BEST_DEV_LOSS:.3f} TO {DEV_LOSS:.3f}. SAVE MODEL")
         BEST_DEV_LOSS = DEV_LOSS
         torch.save(MODEL.state_dict(), f"{LOG_DIR}/model.pt")
+checkpoint = torch.load(f"{LOG_DIR}/model.pt")
+MODEL.load_state_dict(checkpoint)
+MODEL.eval()
+with torch.no_grad():
+    PROGRESS_BAR = tqdm(TEST_DATALOADER, desc=" TEST...")
+    for DATA_DICT in PROGRESS_BAR:
+        DATA_DICT: Dict[str, Tensor] = convert_data_dict_to_device(data_dict=DATA_DICT)
+        START_LOGIT, END_LOGIT, MATCH_LOGIT = MODEL(
+            input_ids=DATA_DICT["input_ids"], token_type_ids=DATA_DICT["token_type_ids"],
+            attention_mask=DATA_DICT["attention_mask"]
+        )
+    metrics_computer.add_batch(
+        START_LOGIT.detach().cpu(), 
+        END_LOGIT.detach().cpu(), 
+        MATCH_LOGIT.detach().cpu(), 
+        DATA_DICT["start_label_mask"].detach().cpu(), 
+        DATA_DICT["end_label_mask"].detach().cpu(), 
+        DATA_DICT["match_label"].detach().cpu(), 
+        DATA_DICT["label"],
+    )
+    PROGRESS_BAR.close()
+
+    torch.cuda.empty_cache()
+    test_metrics = metrics_computer.compute()
+    print(test_metrics["overall"])
+    with open(f"{LOG_DIR}/test_sum_up.txt", mode="a") as FILE_OBJ:
+        FILE_OBJ.write(f"Test metrics {test_metrics} \n")
