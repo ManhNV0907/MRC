@@ -5,4 +5,4 @@
 # /log_dir
 # config.py
 **/.locks
-./models--bert-base-uncased
+**./models--bert-base-uncasedgit 
